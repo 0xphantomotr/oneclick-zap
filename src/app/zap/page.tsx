@@ -6,9 +6,11 @@ import { Card, CardContent } from '@/components/ui/card'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { Select, SelectTrigger, SelectItem, SelectContent } from '@/components/ui/select'
 import { useState } from 'react'
+import { supportedPairs } from '@/data/pairs'
 
 export default function ZapPage() {
   const [direction, setDirection] = useState<'in' | 'out'>('in')
+  const [pairAddr, setPairAddr] = useState<string | undefined>()
 
   return (
     <section className="mx-auto max-w-md space-y-6 py-10">
@@ -24,20 +26,23 @@ export default function ZapPage() {
         <ToggleGroupItem value="out">Zap Out</ToggleGroupItem>
       </ToggleGroup>
 
-      <Select>
-        <SelectTrigger>Choose pair</SelectTrigger>
+        <Select value={pairAddr} onValueChange={setPairAddr}>
+        <SelectTrigger>{pairAddr ? supportedPairs.find(p => p.address === pairAddr)!.symbol : 'Choose pair'}</SelectTrigger>
         <SelectContent>
-          <SelectItem value="eth-usdc">ETH / USDC</SelectItem>
-          <SelectItem value="weth-dai">WETH / DAI</SelectItem>
-          {/* later: map on-chain pairs */}
+            {supportedPairs.map(p => (
+            <SelectItem key={p.address} value={p.address}>
+                <img src={p.tokenA.logo} className="inline h-4 w-4 mr-1" />
+                <img src={p.tokenB.logo} className="inline h-4 w-4 mr-1 -ml-2" />
+                {p.symbol}
+            </SelectItem>
+            ))}
         </SelectContent>
-      </Select>
+        </Select>
 
       <Input placeholder="Amount" />
 
       <Card>
         <CardContent className="py-4">
-          {/* live summary coming soon */}
           <p className="text-sm text-muted-foreground">
             You’ll receive an estimated … LP tokens
           </p>

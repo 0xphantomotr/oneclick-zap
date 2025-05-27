@@ -3,7 +3,7 @@
 import '@rainbow-me/rainbowkit/styles.css'
 
 import { WagmiProvider, http } from 'wagmi'
-import { mainnet, sepolia /* remove holesky if it errors */ } from 'wagmi/chains'
+import { mainnet, sepolia} from 'wagmi/chains'
 import {
   RainbowKitProvider,
   getDefaultConfig,
@@ -14,16 +14,11 @@ import {
   QueryClientProvider,
 } from '@tanstack/react-query'
 
-/** ⚠️  Put this in `.env.local` (public key is fine for client) */
 const config = getDefaultConfig({
-  appName: 'One-Click Zap',
+  appName: 'One-Click Zap (Sepolia)',
   projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID!,
-  chains: [mainnet, sepolia /*, holesky*/],
-  transports: {
-    [mainnet.id]: http(),
-    [sepolia.id]: http(),
-    // [holesky.id]: http(),
-  },
+  chains: [sepolia],
+  transports: { [sepolia.id]: http(process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL) },
 })
 
 const queryClient = new QueryClient()

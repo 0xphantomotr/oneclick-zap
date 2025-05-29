@@ -18,6 +18,10 @@ import { useState } from 'react'
 import { supportedPairs } from '@/data/pairs'
 import { useZapIn } from '@/hooks/useZapIn'
 import { useZapOut } from '@/hooks/useZapOut'
+import { usePairData } from '@/hooks/usePairData'
+import { optimalSwap, estimateLpMint } from '@/lib/optimalSwap'
+import React from 'react'
+import { parseUnits } from 'viem'
 
 export default function ZapPage() {
   const [direction, setDirection]   = useState<'in' | 'out'>('in')
@@ -25,8 +29,37 @@ export default function ZapPage() {
   const [amount,    setAmount]      = useState<string>('')
 
   const pair = supportedPairs.find(p => p.address === pairAddr)
-  const { zapIn, isPending } = useZapIn()
+  const { zapIn,  isPending: inPending  } = useZapIn()
   const { zapOut, isPending: outPending } = useZapOut()
+  const isPendingCombined =
+    direction === 'in' ? inPending : outPending
+
+  const { reserves, totalSupply } = usePairData(pair?.address as `0x${string}`)
+
+  const preview = React.useMemo(() => {
+    if (!pair || !amount || !reserves || !totalSupply) return null
+
+    const decimalsA = pair.tokenA.decimals
+    const amtWei = parseUnits(amount, decimalsA)
+    const toSwap = optimalSwap(amtWei, reserves[0])
+    const addA   = amtWei - toSwap
+
+    // ΔY = (ΔX * 997 * R1) / (R0*1000 + ΔX*997)
+    const swapOut =
+      (toSwap * 997n * reserves[1]) /
+      (reserves[0] * 1000n + toSwap * 997n)
+
+    const lpMint = estimateLpMint({
+      addA,
+      addB: swapOut,
+      reserveA: reserves[0],
+      reserveB: reserves[1],
+      totalSupply,
+    })
+
+    return { toSwap, swapOut, lpMint }
+  }, [pair, amount, reserves, totalSupply])
+
 
   return (
     <section className="mx-auto max-w-md space-y-6 py-10">
@@ -70,16 +103,33 @@ export default function ZapPage() {
 
       {/* Summary stub */}
       <Card>
-        <CardContent className="py-4">
-          <p className="text-sm text-muted-foreground">
-            You’ll receive an estimated … LP tokens
-          </p>
+        <CardContent className="py-4 space-y-1">
+          {preview ? (
+            <>
+              <p className="text-sm">
+                Optimal swap:&nbsp;
+                <b>{Number(preview.toSwap) / 1e18}</b>&nbsp;{pair?.tokenA.symbol}
+              </p>
+              <p className="text-sm">
+                Est. LP tokens:&nbsp;
+                <b>{Number(preview.lpMint) / 1e18}</b>
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Min after slippage&nbsp;(0.5 %):&nbsp;
+                {Number((preview.lpMint * 995n) / 1000n) / 1e18}
+              </p>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              You’ll receive an estimated … LP tokens
+            </p>
+          )}
         </CardContent>
       </Card>
 
       {/* Confirm button */}
       <Button
-        disabled={!pair || !amount || isPending}
+        disabled={!pair || !amount || isPendingCombined}
         onClick={() => {
           if (!pair) return
           if (direction === 'in') {
@@ -102,7 +152,7 @@ export default function ZapPage() {
           }
         }}
       >
-        {isPending ? 'Confirming…' : direction === 'in' ? 'Zap In' : 'Zap Out'}
+        {isPendingCombined ? 'Confirming…' : direction === 'in' ? 'Zap In' : 'Zap Out'}
       </Button>
     </section>
   )

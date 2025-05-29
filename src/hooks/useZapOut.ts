@@ -76,7 +76,9 @@ export function useZapOut() {
         lpWei,
         args.tokenOut,
         BigInt(args.slipBps),
+        0n,
         BigInt(Math.floor(Date.now() / 1_000) + 900),
+        false
       ],
     })
     setHash(txHash)

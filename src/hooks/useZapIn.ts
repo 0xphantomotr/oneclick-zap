@@ -61,12 +61,15 @@ export function useZapIn() {
 
       if (allowance < amountWei) {
         toast('Approving token…')
-        await writeContractAsync({
+        const approveHash = await writeContractAsync({
           address: args.tokenIn,
           abi: erc20Abi,
           functionName: 'approve',
           args: [ZAP_ROUTER, amountWei],
         })
+
+        /* 🟢 NEW – block until approval is mined */
+        await publicClient.waitForTransactionReceipt({ hash: approveHash })
       }
     }
 
@@ -82,7 +85,9 @@ export function useZapIn() {
         args.tokenB,
         amountWei,
         BigInt(args.slipBps),
+        0n,
         BigInt(Math.floor(Date.now() / 1_000) + 900),
+        false
       ],
       value: args.tokenIn === ZERO ? amountWei : 0n,
     })

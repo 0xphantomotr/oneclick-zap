@@ -1,13 +1,14 @@
 [
-  {
-    "inputs": [],
-    "name": "getReserves",
-    "outputs": [
-      { "internalType": "uint112", "name": "_reserve0", "type": "uint112" },
-      { "internalType": "uint112", "name": "_reserve1", "type": "uint112" },
-      { "internalType": "uint32",  "name": "_blockTimestampLast", "type": "uint32" }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  }
+  { "type":"function", "name":"getReserves", "stateMutability":"view",
+    "inputs":[], "outputs":[
+      { "name":"_reserve0","type":"uint112"},
+      { "name":"_reserve1","type":"uint112"},
+      { "name":"_blockTimestampLast","type":"uint32"}
+    ]},
+  { "type":"function", "name":"totalSupply", "stateMutability":"view",
+    "inputs":[], "outputs":[{ "type":"uint256"}]},
+  { "type":"function", "name":"token0", "stateMutability":"view",
+    "inputs":[], "outputs":[{ "type":"address"}]},
+  { "type":"function", "name":"token1", "stateMutability":"view",
+    "inputs":[], "outputs":[{ "type":"address"}]}
 ]

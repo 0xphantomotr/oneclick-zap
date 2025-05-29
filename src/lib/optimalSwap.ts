@@ -24,3 +24,15 @@ function bigIntSqrt(value: bigint) {
   }
   return x0
 }
+
+export function estimateLpMint({
+  addA, addB, reserveA, reserveB, totalSupply
+}: {
+  addA: bigint; addB: bigint;
+  reserveA: bigint; reserveB: bigint;
+  totalSupply: bigint;
+}) {
+  const share = addA * totalSupply / reserveA
+  const shareAlt = addB * totalSupply / reserveB
+  return share < shareAlt ? share : shareAlt
+}

@@ -75,7 +75,7 @@ export function useZapIn() {
     }
 
     /* 2 — zap-in */
-    toast.loading('Submitting zap…')
+    const loadingToastId = toast.loading('Submitting zap…')
     const txHash = await writeContractAsync({
       address: ZAP_ROUTER,
       abi: routerAbi,
@@ -92,6 +92,7 @@ export function useZapIn() {
       ],
       value: args.tokenIn === ZERO ? args.amountWei : 0n,
     })
+    toast.dismiss(loadingToastId)
     setHash(txHash)
   }
 

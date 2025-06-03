@@ -56,45 +56,62 @@ export function useZapOut() {
     if (!address)         throw new Error('Connect wallet first')
     if (!publicClient)    throw new Error('Client not ready, retry')
 
-    // Approval check for LP token
-    const allowance = (await publicClient.readContract({
-      address: args.lpToken,
-      abi: erc20Abi,
-      functionName: 'allowance',
-      args: [address as `0x${string}`, ZAP_ROUTER],
-    })) as bigint
+    // Log the addresses for debugging
+    console.log('[useZapOut] Using addresses:', {
+      lpToken: args.lpToken,
+      tokenA: args.tokenA,
+      tokenB: args.tokenB,
+      tokenOut: args.tokenOut,
+      zapRouter: ZAP_ROUTER
+    });
 
-    if (allowance < args.lpAmountWei) {
-      toast('Approving LP token for Zap Out…')
-      const approveHash = await writeContractAsync({
+    try {
+      // Approval check for LP token
+      const allowance = (await publicClient.readContract({
         address: args.lpToken,
         abi: erc20Abi,
-        functionName: 'approve',
-        // It's often better to approve a very large amount (essentially infinite)
-        // or the exact amount. For simplicity here, using exact.
-        args: [ZAP_ROUTER, args.lpAmountWei],
-      })
-      await publicClient.waitForTransactionReceipt({ hash: approveHash })
-      toast.success('LP Token Approved for Zap Out!')
-    }
+        functionName: 'allowance',
+        args: [address as `0x${string}`, ZAP_ROUTER],
+      })) as bigint
 
-    // Execute Zap Out
-    const txHash = await writeContractAsync({
-      address: ZAP_ROUTER,
-      abi: routerAbi,
-      functionName: 'zapOutSingleToken',
-      args: [
-        args.tokenOut,
-        args.tokenA,
-        args.tokenB,
-        args.lpAmountWei,
-        BigInt(args.slipBps), // Convert number to BigInt
-        args.outMin,
-        args.deadline,
-        args.feeOnTransfer
-      ],
-    })
-    setHash(txHash)
+      console.log('[useZapOut] Current allowance:', allowance.toString());
+      console.log('[useZapOut] Required amount:', args.lpAmountWei.toString());
+
+      if (allowance < args.lpAmountWei) {
+        toast('Approving LP token for Zap Out…')
+        const approveHash = await writeContractAsync({
+          address: args.lpToken,
+          abi: erc20Abi,
+          functionName: 'approve',
+          args: [ZAP_ROUTER, args.lpAmountWei],
+        })
+        await publicClient.waitForTransactionReceipt({ hash: approveHash })
+        toast.success('LP Token Approved for Zap Out!')
+      }
+
+      // Execute Zap Out
+      const loadingToastId = toast.loading('Submitting Zap Out transaction…')
+      const txHash = await writeContractAsync({
+        address: ZAP_ROUTER,
+        abi: routerAbi,
+        functionName: 'zapOutSingleToken',
+        args: [
+          args.tokenOut,
+          args.tokenA,
+          args.tokenB,
+          args.lpAmountWei,
+          BigInt(args.slipBps),
+          args.outMin,
+          args.deadline,
+          args.feeOnTransfer
+        ],
+      })
+      toast.dismiss(loadingToastId)
+      setHash(txHash)
+    } catch (error: any) {
+      console.error('[useZapOut] Error in _zapOutInternal:', error);
+      throw error;
+    }
   }
 
   // Exposed function to be called from the UI
@@ -102,27 +119,19 @@ export function useZapOut() {
     zapOut: async (args: ZapOutArgs) => {
       // Reset hash before new transaction to ensure isConfirming behaves correctly
       setHash(undefined); 
+      let loadingToastId;
+      
       try {
-        toast.loading('Submitting Zap Out transaction…')
+        loadingToastId = toast.loading('Submitting Zap Out transaction…')
         await _zapOutInternal(args);
-        // The toast for "Tx sent" will be handled by the successful call to writeContractAsync
-        // and the subsequent useEffect for mined/failed will give final status.
-        // No need for an explicit "Tx sent" toast here if _zapOutInternal completes without error,
-        // as the loading toast will be replaced by mined/failed.
-        // However, if writeContractAsync itself resolves and _zapOutInternal completes,
-        // it implies submission was successful.
-        // We can refine this based on desired UX for toast messages.
+        toast.dismiss(loadingToastId); // Dismiss the loading toast
+        toast.success('Tx sent. Waiting for confirmation…')
       } catch (e: any) {
-        toast.dismiss(); // Dismiss any loading toasts
+        if (loadingToastId) toast.dismiss(loadingToastId); // Ensure loading toast is dismissed
         if (e.shortMessage) {
           toast.error(e.shortMessage);
         } else {
           toast.error(e.message || 'Zap Out transaction failed or rejected.');
-        }
-        // Ensure isWriting is false if it failed before setting hash
-        if (isWriting) { 
-          // This state might be managed internally by wagmi, direct reset might not be needed
-          // or could cause issues. Usually, wagmi handles pending states.
         }
       }
     },

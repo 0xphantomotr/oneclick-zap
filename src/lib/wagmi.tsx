@@ -2,7 +2,7 @@
 
 import '@rainbow-me/rainbowkit/styles.css'
 
-import { WagmiProvider, http, createStorage } from 'wagmi'
+import { WagmiProvider, http } from 'wagmi'
 import { sepolia } from 'wagmi/chains'
 import {
   RainbowKitProvider,

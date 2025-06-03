@@ -3,9 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { useAccount, useWriteContract, useReadContract } from 'wagmi'
-import { formatUnits } from 'viem'
 import { toast } from 'sonner'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -150,7 +148,7 @@ export default function FaucetPage() {
   
   // Format time remaining
   const formatTimeRemaining = (seconds: bigint | undefined) => {
-    if (!seconds || seconds === 0n) return "Available now";
+    if (!seconds || seconds === 0n) return 'Available now';
     
     const totalSeconds = Number(seconds);
     const hours = Math.floor(totalSeconds / 3600);
@@ -162,7 +160,7 @@ export default function FaucetPage() {
   
   const requestTDAI = async () => {
     if (!isConnected) {
-      toast.error("Please connect your wallet first");
+      toast.error('Please connect your wallet first');
       return;
     }
     
@@ -185,7 +183,7 @@ export default function FaucetPage() {
         refetchTimeTDAI();
       }, 3000);
     } catch (error) {
-      console.error("Error requesting TDAI:", error);
+      console.error('Error requesting TDAI:', error);
       toast.error(`Failed to request TDAI. Try again later.`);
     } finally {
       setIsRequestingTDAI(false);
@@ -194,7 +192,7 @@ export default function FaucetPage() {
   
   const requestTUSDC = async () => {
     if (!isConnected) {
-      toast.error("Please connect your wallet first");
+      toast.error('Please connect your wallet first');
       return;
     }
     
@@ -217,7 +215,7 @@ export default function FaucetPage() {
         refetchTimeTUSDC();
       }, 3000);
     } catch (error) {
-      console.error("Error requesting TUSDC:", error);
+      console.error('Error requesting TUSDC:', error);
       toast.error(`Failed to request TUSDC. Try again later.`);
     } finally {
       setIsRequestingTUSDC(false);
@@ -306,7 +304,7 @@ export default function FaucetPage() {
         <h3 className="font-medium mb-2">How to use the faucet</h3>
         <ol className="list-decimal pl-5 space-y-1 text-sm">
           <li>Connect your wallet using the button in the top right</li>
-          <li>Click the "Get [Token]" button for each token you want</li>
+          <li>Click the &quot;Get [Token]&quot; button for each token you want</li>
           <li>Approve the transaction in your wallet</li>
           <li>Wait for confirmation (this may take a few seconds)</li>
           <li>Once you have tokens, return to the main app to try zapping!</li>

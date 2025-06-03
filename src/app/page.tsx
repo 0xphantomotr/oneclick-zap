@@ -13,7 +13,6 @@ import {
   SelectItem,
   SelectContent,
 } from '@/components/ui/select'
-import { ConnectButton } from '@rainbow-me/rainbowkit'
 import Image from 'next/image'
 import Link from 'next/link'
 

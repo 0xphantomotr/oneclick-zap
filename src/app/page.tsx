@@ -14,6 +14,7 @@ import {
   SelectContent,
 } from '@/components/ui/select'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
+import Image from 'next/image'
 
 import { useState, useEffect } from 'react'
 import { supportedPairs } from '@/data/pairs'
@@ -67,9 +68,9 @@ export default function Page() {
   const formattedTokenAAddress = pair?.tokenA ? getAddress(pair.tokenA.address) as `0x${string}` : undefined
   const formattedTokenBAddress = pair?.tokenB ? getAddress(pair.tokenB.address) as `0x${string}` : undefined
   
-  const { formattedBalance: lpBalance, isLoading: lpBalanceLoading } = useLPBalance(formattedLpAddress)
-  const { formattedBalance: tokenABalance, isLoading: tokenABalanceLoading } = useTokenBalance(formattedTokenAAddress, pair?.tokenA.decimals)
-  const { formattedBalance: tokenBBalance, isLoading: tokenBBalanceLoading } = useTokenBalance(formattedTokenBAddress, pair?.tokenB.decimals)
+  const { formattedBalance: lpBalance } = useLPBalance(formattedLpAddress)
+  const { formattedBalance: tokenABalance } = useTokenBalance(formattedTokenAAddress, pair?.tokenA.decimals)
+  const { formattedBalance: tokenBBalance } = useTokenBalance(formattedTokenBAddress, pair?.tokenB.decimals)
 
   // Add some debugging
   useEffect(() => {
@@ -153,11 +154,11 @@ export default function Page() {
       return {
         amountWei: amtWei, toSwap, receivedFromSwap, lpMint, lpMinAfterSlippage,
       }
-    } catch (e) {
+    } catch {
       // This catches errors primarily from parseUnits, e.g. too many decimals for the token
       return { error: "Invalid amount format for token." }
     }
-  }, [pair, amount, reserves, tokenInDetails, tokenOutDetails, isLoadingPairData, pairDataError])
+  }, [pair, amount, reserves, tokenInDetails, tokenOutDetails, isLoadingPairData, pairDataError, totalSupply])
 
   // Now the zapOutPreview useMemo can access lpBalance
   const zapOutPreview: ZapOutPreviewResult | null = React.useMemo(() => {
@@ -210,7 +211,7 @@ export default function Page() {
         tokenOutMinAfterSlippage,
         error: undefined
       };
-    } catch (e) {
+    } catch {
       return { 
         lpAmountWei: 0n, 
         tokenOutEstimate: 0n, 
@@ -225,47 +226,53 @@ export default function Page() {
     const hasAmount = amount && parseFloat(amount) > 0;
 
     if (hasAmount && isLoadingPairData) {
-      return <p className="text-sm text-muted-foreground">Loading pair data for preview...</p>;
+        return <p className="text-sm text-muted-foreground">Loading pair data for preview...</p>;
     }
 
     if (hasAmount && !isLoadingPairData && pairDataError) {
-      const errorMessage = (pairDataError as any)?.shortMessage || (pairDataError as any)?.message || "Unknown error loading pair data.";
-      return <p className="text-sm text-red-500">Error: {errorMessage} Try changing pairs or check network.</p>;
+      const errorMessage = pairDataError instanceof Error 
+        ? pairDataError.message 
+        : typeof pairDataError === 'object' && pairDataError !== null 
+          ? ('shortMessage' in pairDataError 
+            ? String((pairDataError as Record<string, unknown>).shortMessage)
+            : "Unknown error")
+          : "Unknown error loading pair data.";
+        return <p className="text-sm text-red-500">Error: {errorMessage} Try changing pairs or check network.</p>;
+    }
+    
+    if (direction === 'in') {
+    if (!preview && hasAmount) { 
+        return <p className="text-sm text-muted-foreground">Calculating preview or invalid input...</p>;
+    }
+    
+    if (!preview) { 
+        return <p className="text-sm text-muted-foreground">Enter an amount to see preview.</p>;
     }
 
-    if (direction === 'in') {
-      if (!preview && hasAmount) { 
-        return <p className="text-sm text-muted-foreground">Calculating preview or invalid input...</p>;
-      }
-      
-      if (!preview) { 
-        return <p className="text-sm text-muted-foreground">Enter an amount to see preview.</p>;
-      }
+    if (preview.error) { 
+      return <p className="text-sm text-red-500">{preview.error}</p>;
+    }
 
-      if (preview.error) { 
-        return <p className="text-sm text-red-500">{preview.error}</p>;
-      }
-
-      if (!tokenInDetails || !tokenOutDetails) { 
+    if (!tokenInDetails || !tokenOutDetails) { 
         return <p className="text-sm text-red-500">Token details missing.</p>
-      }
-      
-      return (
-        <>
-          <p className="text-sm">
-            Optimal to swap:&nbsp;
-            <b>{formatUnits(preview.toSwap!, tokenInDetails.decimals)}</b> {tokenInDetails.symbol} for ~<b>{formatUnits(preview.receivedFromSwap!, tokenOutDetails.decimals)}</b> {tokenOutDetails.symbol}
-          </p>
-          <p className="text-sm">
-            Est. LP tokens received:&nbsp;
-            <b>{formatUnits(preview.lpMint!, 18)}</b>
-          </p>
-          <p className="text-xs text-muted-foreground">
-            Min. LP after slippage (0.5%):&nbsp;
-            <b>{formatUnits(preview.lpMinAfterSlippage!, 18)}</b>
-          </p>
-        </>
-      );
+    }
+    
+    return (
+      <>
+        <p className="text-sm">
+          Optimal to swap:&nbsp;
+          <b>{formatUnits(preview.toSwap!, tokenInDetails.decimals)}</b> {tokenInDetails.symbol} for ~<b>{formatUnits(preview.receivedFromSwap!, tokenOutDetails.decimals)}</b> {tokenOutDetails.symbol}
+        </p>
+        <p className="text-sm">
+          Est. LP tokens received:&nbsp;
+          <b>{formatUnits(preview.lpMint!, 18)}</b>
+        </p>
+        <p className="text-xs text-muted-foreground">
+          Min. LP after slippage (0.5%):&nbsp;
+          <b>{formatUnits(preview.lpMinAfterSlippage!, 18)}</b>
+        </p>
+      </>
+    );
     } else {
       // Zap Out preview rendering
       if (!zapOutPreview && hasAmount) {
@@ -296,11 +303,27 @@ export default function Page() {
               size="sm"
             >
               <ToggleGroupItem value="tokenA" size="sm">
-                <img src={pair?.tokenA.logo} className="inline h-4 w-4 mr-1" />
+                {pair?.tokenA.logo && (
+                  <Image 
+                    src={pair.tokenA.logo} 
+                    width={16} 
+                    height={16} 
+                    className="inline mr-1" 
+                    alt={`${pair.tokenA.symbol} logo`} 
+                  />
+                )}
                 {pair?.tokenA.symbol}
               </ToggleGroupItem>
               <ToggleGroupItem value="tokenB" size="sm">
-                <img src={pair?.tokenB.logo} className="inline h-4 w-4 mr-1" />
+                {pair?.tokenB.logo && (
+                  <Image 
+                    src={pair.tokenB.logo} 
+                    width={16} 
+                    height={16} 
+                    className="inline mr-1" 
+                    alt={`${pair.tokenB.symbol} logo`} 
+                  />
+                )}
                 {pair?.tokenB.symbol}
               </ToggleGroupItem>
             </ToggleGroup>
@@ -352,8 +375,20 @@ export default function Page() {
         <SelectContent>
           {supportedPairs.map(p => (
             <SelectItem key={p.address} value={p.address}>
-              <img src={p.tokenA.logo} className="inline h-4 w-4 mr-1" />
-              <img src={p.tokenB.logo} className="inline h-4 w-4 mr-1 -ml-2" />
+              <Image 
+                src={p.tokenA.logo || '/placeholder.png'} 
+                width={16} 
+                height={16} 
+                className="inline mr-1" 
+                alt={`${p.tokenA.symbol} logo`} 
+              />
+              <Image 
+                src={p.tokenB.logo || '/placeholder.png'} 
+                width={16} 
+                height={16} 
+                className="inline mr-1 -ml-2" 
+                alt={`${p.tokenB.symbol} logo`} 
+              />
               {p.symbol}
             </SelectItem>
           ))}
@@ -408,7 +443,7 @@ export default function Page() {
             parseFloat(amount) <= 0 ||
             isLoadingPairData || 
             pairDataError != null || 
-            (direction === 'in' && (!preview || !!preview.error)) ||
+            (direction === 'in' && (!preview || !!preview.error)) || 
             (direction === 'out' && (!zapOutPreview || !!zapOutPreview.error)) ||
             isPendingCombined
         }
@@ -443,21 +478,24 @@ export default function Page() {
               const formattedTokenB = getAddress(pair.tokenB.address);
               const formattedLpToken = getAddress(pair.address);
               const formattedTokenOut = getAddress(selectedTokenAddress);
-              
-              await zapOut({
+
+            await zapOut({
                 tokenA: formattedTokenA as `0x${string}`,
                 tokenB: formattedTokenB as `0x${string}`,
                 lpToken: formattedLpToken as `0x${string}`,
                 lpAmountWei: zapOutPreview.lpAmountWei,
                 tokenOut: formattedTokenOut as `0x${string}`,
-                slipBps: 50,
+              slipBps: 50,
                 outMin: zapOutPreview.tokenOutMinAfterSlippage,
                 deadline: BigInt(Math.floor(Date.now() / 1_000) + 900),
-                feeOnTransfer: false
-              });
-            } catch (error: any) {
+              feeOnTransfer: false
+            });
+            } catch (error: unknown) {
               console.error("Error formatting addresses:", error);
-              toast.error(`Address formatting error: ${error.message || "Unknown error"}`);
+              const errorMessage = error instanceof Error 
+                ? error.message 
+                : "Unknown error";
+              toast.error(`Address formatting error: ${errorMessage}`);
             }
           }
         }}

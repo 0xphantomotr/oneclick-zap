@@ -66,49 +66,49 @@ export function useZapOut() {
     });
 
     try {
-      // Approval check for LP token
-      const allowance = (await publicClient.readContract({
-        address: args.lpToken,
-        abi: erc20Abi,
-        functionName: 'allowance',
-        args: [address as `0x${string}`, ZAP_ROUTER],
-      })) as bigint
+    // Approval check for LP token
+    const allowance = (await publicClient.readContract({
+      address: args.lpToken,
+      abi: erc20Abi,
+      functionName: 'allowance',
+      args: [address as `0x${string}`, ZAP_ROUTER],
+    })) as bigint
 
       console.log('[useZapOut] Current allowance:', allowance.toString());
       console.log('[useZapOut] Required amount:', args.lpAmountWei.toString());
 
-      if (allowance < args.lpAmountWei) {
-        toast('Approving LP token for Zap Out…')
-        const approveHash = await writeContractAsync({
-          address: args.lpToken,
-          abi: erc20Abi,
-          functionName: 'approve',
-          args: [ZAP_ROUTER, args.lpAmountWei],
-        })
-        await publicClient.waitForTransactionReceipt({ hash: approveHash })
-        toast.success('LP Token Approved for Zap Out!')
-      }
-
-      // Execute Zap Out
-      const loadingToastId = toast.loading('Submitting Zap Out transaction…')
-      const txHash = await writeContractAsync({
-        address: ZAP_ROUTER,
-        abi: routerAbi,
-        functionName: 'zapOutSingleToken',
-        args: [
-          args.tokenOut,
-          args.tokenA,
-          args.tokenB,
-          args.lpAmountWei,
-          BigInt(args.slipBps),
-          args.outMin,
-          args.deadline,
-          args.feeOnTransfer
-        ],
+    if (allowance < args.lpAmountWei) {
+      toast('Approving LP token for Zap Out…')
+      const approveHash = await writeContractAsync({
+        address: args.lpToken,
+        abi: erc20Abi,
+        functionName: 'approve',
+        args: [ZAP_ROUTER, args.lpAmountWei],
       })
+      await publicClient.waitForTransactionReceipt({ hash: approveHash })
+      toast.success('LP Token Approved for Zap Out!')
+    }
+
+    // Execute Zap Out
+      const loadingToastId = toast.loading('Submitting Zap Out transaction…')
+    const txHash = await writeContractAsync({
+      address: ZAP_ROUTER,
+      abi: routerAbi,
+      functionName: 'zapOutSingleToken',
+      args: [
+        args.tokenOut,
+        args.tokenA,
+        args.tokenB,
+        args.lpAmountWei,
+          BigInt(args.slipBps),
+        args.outMin,
+        args.deadline,
+        args.feeOnTransfer
+      ],
+    })
       toast.dismiss(loadingToastId)
-      setHash(txHash)
-    } catch (error: any) {
+    setHash(txHash)
+    } catch (error: unknown) {
       console.error('[useZapOut] Error in _zapOutInternal:', error);
       throw error;
     }
@@ -126,12 +126,18 @@ export function useZapOut() {
         await _zapOutInternal(args);
         toast.dismiss(loadingToastId); // Dismiss the loading toast
         toast.success('Tx sent. Waiting for confirmation…')
-      } catch (e: any) {
-        if (loadingToastId) toast.dismiss(loadingToastId); // Ensure loading toast is dismissed
-        if (e.shortMessage) {
-          toast.error(e.shortMessage);
+      } catch (e: unknown) {
+        toast.dismiss(); // Dismiss any loading toasts
+        if (e instanceof Error) {
+          if ('shortMessage' in e) {
+            toast.error(typeof e === 'object' && e !== null && 'shortMessage' in e 
+              ? String(e.shortMessage) 
+              : 'Transaction failed');
         } else {
           toast.error(e.message || 'Zap Out transaction failed or rejected.');
+        }
+        } else {
+          toast.error('Zap Out transaction failed or rejected.');
         }
       }
     },

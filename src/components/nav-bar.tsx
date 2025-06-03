@@ -1,21 +1,25 @@
 'use client'
 
 import Link from 'next/link'
-import { ConnectButton } from '@rainbow-me/rainbowkit'
+import { Button } from '@/components/ui/button'
 
 export function NavBar() {
   return (
-    <header className="flex items-center justify-between border-b px-4 py-3">
-      <Link href="/" className="font-bold text-lg">
-        One-Click Zap
-      </Link>
-
-      <nav className="flex items-center gap-6">
-        <Link href="/zap" className="hover:underline">
-          Zap
+    <header className="border-b border-gray-200 dark:border-gray-800">
+      <div className="container mx-auto px-4 py-3 flex justify-between items-center">
+        <Link href="/">
+          <div className="font-bold text-xl">OneClick Zap</div>
         </Link>
-        <ConnectButton chainStatus="icon" showBalance={false} />
+        <nav>
+          <ul className="flex space-x-4">
+            <li>
+              <Link href="/docs">
+                <Button variant="ghost">Documentation</Button>
+              </Link>
+            </li>
+          </ul>
       </nav>
+      </div>
     </header>
   )
 }

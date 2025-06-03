@@ -10,7 +10,6 @@ import routerAbi from '@/abis/Univ2ZapRouter.json'
 import erc20Abi  from '@/abis/ERC20.json'
 import { ZAP_ROUTER } from '@/lib/constants'
 import { toast }      from 'sonner'
-import { parseUnits } from 'viem'
 import { useEffect, useState } from 'react'
 import { sepolia } from 'wagmi/chains'
 
@@ -103,11 +102,15 @@ export function useZapIn() {
         if (hash) {
           toast.success('Tx sent. Waiting for confirmation…')
         }
-      } catch (e: any) {
-        if (e.shortMessage) {
-          toast.error(e.shortMessage);
+      } catch (error: unknown) {
+        if (error instanceof Error) {
+          if (typeof error === 'object' && error !== null && 'shortMessage' in error) {
+            toast.error(String(error.shortMessage));
+          } else {
+            toast.error('Transaction failed');
+          }
         } else {
-          toast.error('Transaction failed or rejected.');
+          toast.error('Transaction failed');
         }
       }
     },

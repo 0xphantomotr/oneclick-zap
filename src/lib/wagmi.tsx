@@ -3,7 +3,7 @@
 import '@rainbow-me/rainbowkit/styles.css'
 
 import { WagmiProvider, http } from 'wagmi'
-import { mainnet, sepolia} from 'wagmi/chains'
+import { sepolia } from 'wagmi/chains'
 import {
   RainbowKitProvider,
   getDefaultConfig,

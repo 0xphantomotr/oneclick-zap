@@ -12,6 +12,7 @@ import { ZAP_ROUTER } from '@/lib/constants'
 import { toast }      from 'sonner'
 import { parseUnits } from 'viem'
 import { useEffect, useState } from 'react'
+import { sepolia } from 'wagmi/chains'
 
 const ZERO = '0x0000000000000000000000000000000000000000'
 
@@ -31,8 +32,10 @@ export function useZapIn() {
       toast.success('Tx mined!', {
         action: {
           label: 'View',
-          onClick: () =>
-            window.open(`https://sepolia.etherscan.io/tx/${hash}`, '_blank'),
+          onClick: () => {
+            const baseUrl = sepolia.blockExplorers.default.url
+            window.open(`${baseUrl}/tx/${hash}`, '_blank')
+          },
         },
       })
     if (failed) toast.error('Tx reverted')
@@ -42,13 +45,12 @@ export function useZapIn() {
     tokenIn: `0x${string}`
     tokenA:  `0x${string}`
     tokenB:  `0x${string}`
-    amount:  string
+    amountWei: bigint
     slipBps: number
+    lpMin: bigint
   }) {
     if (!address)   return toast.error('Connect wallet first')
     if (!publicClient) return toast.error('Client not ready, please retry')
-
-    const amountWei = parseUnits(args.amount, 18) 
 
     /* 1 — approve if needed */
     if (args.tokenIn !== ZERO) {
@@ -59,16 +61,15 @@ export function useZapIn() {
         args: [address as `0x${string}`, ZAP_ROUTER],
       })) as bigint
 
-      if (allowance < amountWei) {
+      if (allowance < args.amountWei) {
         toast('Approving token…')
         const approveHash = await writeContractAsync({
           address: args.tokenIn,
           abi: erc20Abi,
           functionName: 'approve',
-          args: [ZAP_ROUTER, amountWei],
+          args: [ZAP_ROUTER, args.amountWei],
         })
 
-        /* 🟢 NEW – block until approval is mined */
         await publicClient.waitForTransactionReceipt({ hash: approveHash })
       }
     }
@@ -83,17 +84,36 @@ export function useZapIn() {
         args.tokenIn,
         args.tokenA,
         args.tokenB,
-        amountWei,
+        args.amountWei,
         BigInt(args.slipBps),
-        0n,
+        args.lpMin,
         BigInt(Math.floor(Date.now() / 1_000) + 900),
         false
       ],
-      value: args.tokenIn === ZERO ? amountWei : 0n,
+      value: args.tokenIn === ZERO ? args.amountWei : 0n,
     })
     setHash(txHash)
-    toast.success('Tx sent. Waiting…')
   }
 
-  return { zapIn, isPending: isWriting }
+  return {
+    zapIn: async (args: Parameters<typeof zapIn>[0]) => {
+      try {
+        await zapIn(args);
+        if (hash) {
+          toast.success('Tx sent. Waiting for confirmation…')
+        }
+      } catch (e: any) {
+        if (e.shortMessage) {
+          toast.error(e.shortMessage);
+        } else {
+          toast.error('Transaction failed or rejected.');
+        }
+      }
+    },
+    isPending: isWriting,
+    isConfirming: !!hash && !mined && !failed,
+    hash,
+    mined,
+    failed
+  }
 }

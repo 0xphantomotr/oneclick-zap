@@ -14,11 +14,26 @@ import {
   QueryClientProvider,
 } from '@tanstack/react-query'
 
+// Log the environment variables to be sure
+const rpcUrl = process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL;
+const walletConnectProjectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID;
+
+console.log('[wagmi.tsx] NEXT_PUBLIC_SEPOLIA_RPC_URL:', rpcUrl);
+console.log('[wagmi.tsx] NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID:', walletConnectProjectId);
+
+if (!rpcUrl) {
+  console.error("[wagmi.tsx] CRITICAL ERROR: NEXT_PUBLIC_SEPOLIA_RPC_URL is not defined! Check your .env.local file in the 'oneclick-zap' project.");
+  alert("CRITICAL ERROR: Application is not configured correctly. RPC URL is missing. Check console.");
+}
+if (!walletConnectProjectId) {
+  console.warn("[wagmi.tsx] WARNING: NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID is not defined. WalletConnect might not work as expected.");
+}
+
 const config = getDefaultConfig({
   appName: 'One-Click Zap (Sepolia)',
-  projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID!,
+  projectId: walletConnectProjectId!,
   chains: [sepolia],
-  transports: { [sepolia.id]: http(process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL) },
+  transports: { [sepolia.id]: http(rpcUrl) },
 })
 
 const queryClient = new QueryClient()

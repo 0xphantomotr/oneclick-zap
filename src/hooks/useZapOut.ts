@@ -10,8 +10,23 @@ import routerAbi from '@/abis/Univ2ZapRouter.json'
 import erc20Abi  from '@/abis/ERC20.json'
 import { ZAP_ROUTER } from '@/lib/constants'
 import { toast }      from 'sonner'
-import { parseUnits } from 'viem'
+// parseUnits is not used here if lpAmountWei is passed as bigint
+// import { parseUnits } from 'viem' 
 import { useState, useEffect } from 'react'
+import { sepolia } from 'wagmi/chains'
+
+// Define the arguments for the internal _zapOut function
+interface ZapOutArgs {
+  tokenA:  `0x${string}`;
+  tokenB:  `0x${string}`;
+  lpToken: `0x${string}`;
+  lpAmountWei: bigint; // Expecting bigint
+  tokenOut: `0x${string}`;
+  slipBps: number; // Will be converted to BigInt in the function
+  outMin: bigint;
+  deadline: bigint;
+  feeOnTransfer: boolean;
+}
 
 export function useZapOut() {
   const { address } = useAccount()
@@ -19,34 +34,29 @@ export function useZapOut() {
   const { writeContractAsync, isPending: isWriting } = useWriteContract()
 
   const [hash, setHash] = useState<`0x${string}` | undefined>()
-  const { isSuccess, isError } = useWaitForTransactionReceipt({ hash })
+  const { isSuccess: mined, isError: failed } = useWaitForTransactionReceipt({ hash })
 
   useEffect(() => {
     if (!hash) return
-    if (isSuccess)
-      toast.success('Tx mined!', {
+    if (mined)
+      toast.success('Zap Out Tx Mined!', {
         action: {
           label: 'View',
-          onClick: () => window.open(`https://sepolia.etherscan.io/tx/${hash}`, '_blank'),
+          onClick: () => {
+            const baseUrl = sepolia.blockExplorers.default.url
+            window.open(`${baseUrl}/tx/${hash}`, '_blank')
+          },
         },
       })
-    if (isError) toast.error('Tx reverted')
-  }, [hash, isSuccess, isError])
+    if (failed) toast.error('Zap Out Tx Reverted') // Custom message
+  }, [hash, mined, failed])
 
-  async function zapOut(args: {
-    tokenA:  `0x${string}`
-    tokenB:  `0x${string}`
-    lpToken: `0x${string}`  // pair address
-    amountLp: string        // human-readable
-    tokenOut: `0x${string}` // which single token you want
-    slipBps: number
-  }) {
-    if (!address)         return toast.error('Connect wallet first')
-    if (!publicClient)    return toast.error('Client not ready, retry')
+  // Internal function with the actual logic
+  async function _zapOutInternal(args: ZapOutArgs) {
+    if (!address)         throw new Error('Connect wallet first')
+    if (!publicClient)    throw new Error('Client not ready, retry')
 
-    const lpWei = parseUnits(args.amountLp, 18) // LP always 18-dec
-
-    /* 1 — allowance */
+    // Approval check for LP token
     const allowance = (await publicClient.readContract({
       address: args.lpToken,
       abi: erc20Abi,
@@ -54,36 +64,72 @@ export function useZapOut() {
       args: [address as `0x${string}`, ZAP_ROUTER],
     })) as bigint
 
-    if (allowance < lpWei) {
-      toast('Approving LP token…')
-      await writeContractAsync({
+    if (allowance < args.lpAmountWei) {
+      toast('Approving LP token for Zap Out…')
+      const approveHash = await writeContractAsync({
         address: args.lpToken,
         abi: erc20Abi,
         functionName: 'approve',
-        args: [ZAP_ROUTER, lpWei],
+        // It's often better to approve a very large amount (essentially infinite)
+        // or the exact amount. For simplicity here, using exact.
+        args: [ZAP_ROUTER, args.lpAmountWei],
       })
+      await publicClient.waitForTransactionReceipt({ hash: approveHash })
+      toast.success('LP Token Approved for Zap Out!')
     }
 
-    /* 2 — zap-out */
-    toast.loading('Submitting zap-out…')
+    // Execute Zap Out
     const txHash = await writeContractAsync({
       address: ZAP_ROUTER,
       abi: routerAbi,
       functionName: 'zapOutSingleToken',
       args: [
+        args.tokenOut,
         args.tokenA,
         args.tokenB,
-        lpWei,
-        args.tokenOut,
-        BigInt(args.slipBps),
-        0n,
-        BigInt(Math.floor(Date.now() / 1_000) + 900),
-        false
+        args.lpAmountWei,
+        BigInt(args.slipBps), // Convert number to BigInt
+        args.outMin,
+        args.deadline,
+        args.feeOnTransfer
       ],
     })
     setHash(txHash)
-    toast.success('Tx sent. Waiting…')
   }
 
-  return { zapOut, isPending: isWriting }
+  // Exposed function to be called from the UI
+  return {
+    zapOut: async (args: ZapOutArgs) => {
+      // Reset hash before new transaction to ensure isConfirming behaves correctly
+      setHash(undefined); 
+      try {
+        toast.loading('Submitting Zap Out transaction…')
+        await _zapOutInternal(args);
+        // The toast for "Tx sent" will be handled by the successful call to writeContractAsync
+        // and the subsequent useEffect for mined/failed will give final status.
+        // No need for an explicit "Tx sent" toast here if _zapOutInternal completes without error,
+        // as the loading toast will be replaced by mined/failed.
+        // However, if writeContractAsync itself resolves and _zapOutInternal completes,
+        // it implies submission was successful.
+        // We can refine this based on desired UX for toast messages.
+      } catch (e: any) {
+        toast.dismiss(); // Dismiss any loading toasts
+        if (e.shortMessage) {
+          toast.error(e.shortMessage);
+        } else {
+          toast.error(e.message || 'Zap Out transaction failed or rejected.');
+        }
+        // Ensure isWriting is false if it failed before setting hash
+        if (isWriting) { 
+          // This state might be managed internally by wagmi, direct reset might not be needed
+          // or could cause issues. Usually, wagmi handles pending states.
+        }
+      }
+    },
+    isPending: isWriting, // True when writeContractAsync is active
+    isConfirming: !!hash && !mined && !failed, // True after hash is set and before mined/failed
+    hash,
+    mined,
+    failed,
+  }
 }

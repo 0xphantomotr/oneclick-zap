@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/select'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
 import Image from 'next/image'
+import Link from 'next/link'
 
 import { useState, useEffect } from 'react'
 import { supportedPairs } from '@/data/pairs'
@@ -241,38 +242,60 @@ export default function Page() {
     }
     
     if (direction === 'in') {
-    if (!preview && hasAmount) { 
-        return <p className="text-sm text-muted-foreground">Calculating preview or invalid input...</p>;
-    }
-    
-    if (!preview) { 
-        return <p className="text-sm text-muted-foreground">Enter an amount to see preview.</p>;
-    }
+      // Check if user has enough tokens for zap in
+      if (tokenInDetails && tokenABalance && parseFloat(tokenABalance) < 10) {
+        return (
+          <div className="text-sm">
+            <p className="text-amber-500">Your {tokenInDetails.symbol} balance is low.</p>
+            <p className="mt-1">
+              <Link href="/faucet" className="text-blue-500 hover:underline">Get free test tokens from our faucet</Link>
+            </p>
+          </div>
+        );
+      }
+      
+      if (!preview && hasAmount) { 
+          return <p className="text-sm text-muted-foreground">Calculating preview or invalid input...</p>;
+      }
+      
+      if (!preview) { 
+          return <p className="text-sm text-muted-foreground">Enter an amount to see preview.</p>;
+      }
 
-    if (preview.error) { 
-      return <p className="text-sm text-red-500">{preview.error}</p>;
-    }
+      if (preview.error) { 
+        if (preview.error.includes("Amount must be greater than zero")) {
+          return (
+            <div className="text-sm text-red-500">
+              <p>{preview.error}</p>
+              <p className="mt-1">
+                Need tokens? <Link href="/faucet" className="underline">Visit our faucet</Link>
+              </p>
+            </div>
+          );
+        }
+        return <p className="text-sm text-red-500">{preview.error}</p>;
+      }
 
-    if (!tokenInDetails || !tokenOutDetails) { 
-        return <p className="text-sm text-red-500">Token details missing.</p>
-    }
-    
-    return (
-      <>
-        <p className="text-sm">
-          Optimal to swap:&nbsp;
-          <b>{formatUnits(preview.toSwap!, tokenInDetails.decimals)}</b> {tokenInDetails.symbol} for ~<b>{formatUnits(preview.receivedFromSwap!, tokenOutDetails.decimals)}</b> {tokenOutDetails.symbol}
-        </p>
-        <p className="text-sm">
-          Est. LP tokens received:&nbsp;
-          <b>{formatUnits(preview.lpMint!, 18)}</b>
-        </p>
-        <p className="text-xs text-muted-foreground">
-          Min. LP after slippage (0.5%):&nbsp;
-          <b>{formatUnits(preview.lpMinAfterSlippage!, 18)}</b>
-        </p>
-      </>
-    );
+      if (!tokenInDetails || !tokenOutDetails) { 
+          return <p className="text-sm text-red-500">Token details missing.</p>
+      }
+      
+      return (
+        <>
+          <p className="text-sm">
+            Optimal to swap:&nbsp;
+            <b>{formatUnits(preview.toSwap!, tokenInDetails.decimals)}</b> {tokenInDetails.symbol} for ~<b>{formatUnits(preview.receivedFromSwap!, tokenOutDetails.decimals)}</b> {tokenOutDetails.symbol}
+          </p>
+          <p className="text-sm">
+            Est. LP tokens received:&nbsp;
+            <b>{formatUnits(preview.lpMint!, 18)}</b>
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Min. LP after slippage (0.5%):&nbsp;
+            <b>{formatUnits(preview.lpMinAfterSlippage!, 18)}</b>
+          </p>
+        </>
+      );
     } else {
       // Zap Out preview rendering
       if (!zapOutPreview && hasAmount) {
@@ -284,6 +307,18 @@ export default function Page() {
       }
 
       if (zapOutPreview.error) {
+        if (zapOutPreview.error.includes("Insufficient LP balance")) {
+          return (
+            <div className="text-sm text-red-500">
+              <p>{zapOutPreview.error}</p>
+              <p className="mt-1">
+                <Link href="/" className="text-blue-500 hover:underline" onClick={() => setDirection('in')}>
+                  Zap in first to get LP tokens
+                </Link>
+              </p>
+            </div>
+          );
+        }
         return <p className="text-sm text-red-500">{zapOutPreview.error}</p>;
       }
 
@@ -343,12 +378,6 @@ export default function Page() {
 
   return (
     <section className="mx-auto max-w-md space-y-6 py-10">
-      <div className="flex justify-center mb-4">
-        <ConnectButton 
-          showBalance={false}
-          chainStatus="icon"
-        />
-      </div>
       <h1 className="text-3xl font-bold text-center">
         Zap {direction === 'in' ? 'In' : 'Out'}
         {pair && tokenInDetails && direction === 'in' ? ` with ${tokenInDetails.symbol}` : ''}

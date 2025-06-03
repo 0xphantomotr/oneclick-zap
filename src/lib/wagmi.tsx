@@ -2,7 +2,7 @@
 
 import '@rainbow-me/rainbowkit/styles.css'
 
-import { WagmiProvider, http } from 'wagmi'
+import { WagmiProvider, http, createStorage } from 'wagmi'
 import { sepolia } from 'wagmi/chains'
 import {
   RainbowKitProvider,
@@ -34,6 +34,7 @@ const config = getDefaultConfig({
   projectId: walletConnectProjectId!,
   chains: [sepolia],
   transports: { [sepolia.id]: http(rpcUrl) },
+  ssr: true
 })
 
 const queryClient = new QueryClient()
@@ -42,7 +43,7 @@ export function Web3Providers({ children }: { children: React.ReactNode }) {
   return (
     <WagmiProvider
       config={config}
-      reconnectOnMount={false}
+      reconnectOnMount={true} // Enable reconnection on page refresh
     >
       <QueryClientProvider client={queryClient}>
         <RainbowKitProvider>{children}</RainbowKitProvider>

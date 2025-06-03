@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
+import { ConnectButton } from '@rainbow-me/rainbowkit'
 
 export function NavBar() {
   return (
@@ -10,15 +11,28 @@ export function NavBar() {
         <Link href="/">
           <div className="font-bold text-xl">OneClick Zap</div>
         </Link>
-        <nav>
-          <ul className="flex space-x-4">
-            <li>
-              <Link href="/docs">
-                <Button variant="ghost">Documentation</Button>
-              </Link>
-            </li>
-          </ul>
-      </nav>
+        
+        <div className="flex items-center gap-4">
+          <nav>
+            <ul className="flex space-x-2">
+              <li>
+                <Link href="/docs">
+                  <Button variant="ghost" size="sm">Docs</Button>
+                </Link>
+              </li>
+              <li>
+                <Link href="/faucet">
+                  <Button variant="ghost" size="sm">Get Tokens</Button>
+                </Link>
+              </li>
+            </ul>
+          </nav>
+          
+          <ConnectButton 
+            showBalance={false}
+            chainStatus="icon"
+          />
+        </div>
       </div>
     </header>
   )

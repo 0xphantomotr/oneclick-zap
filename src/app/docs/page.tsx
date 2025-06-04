@@ -228,7 +228,7 @@ export default function DocumentationPage() {
       <div className="mt-10 pt-6 border-t border-slate-200 dark:border-slate-700">
         <div className="flex justify-between items-center">
           <p className="text-sm text-slate-500">
-            © 2023 OneClick Zap. All rights reserved.
+            © 2025 OneClick Zap. All rights reserved.
           </p>
           <Link href="/">
             <Button variant="outline">Back to App</Button>
